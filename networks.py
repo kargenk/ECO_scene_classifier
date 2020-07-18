@@ -102,20 +102,71 @@ class Inception_B(nn.Module):
         out = torch.cat([out1, out2, out3, out4], dim=1)
         return out
 
+class Inception_C(nn.Module):
+    """ ECOの2D Netモジュール内のInceptionモジュールの2つ目 """
+
+    def __init__(self):
+        super(Inception_C, self).__init__()
+
+        self.inception = nn.Sequential(
+            Conv2D(320, 64, kernel_size=1, stride=1),
+            Conv2D(64, 96, kernel_size=3, stride=1, padding=1)
+        )
+
+    def forward(self, x):
+        out = self.inception(x)  # [320, 28, 28] -> [96, 28, 28]
+        return out
+
+class ECO_2D(nn.Module):
+    """ Basic Conv, Inception A-Cを連結させた，ECOの2D Netモジュール全体 """
+
+    def __init__(self):
+        super(ECO_2D, self).__init__()
+
+        self.basic_conv = BasicConv()
+        self.inception_a = Inception_A()
+        self.inception_b = Inception_B()
+        self.inception_c = Inception_C()
+
+    def forward(self, x):
+        """
+        Parameters
+        ----------
+        x : torch.Tensor, torch.Size([batch_size, 3, 224, 224])
+            入力
+        """
+        
+        out = self.basic_conv(x)
+        out = self.inception_a(out)
+        out = self.inception_b(out)
+        out = self.inception_c(out)
+        return out
+
 if __name__ == '__main__':
-    input_tensor = torch.randn(1, 3, 224, 224)  # 入力用のテストtensor
+    batch_size = 1
+    input_tensor = torch.randn(batch_size, 3, 224, 224)  # 入力用のテストtensor
 
-    # Basic Convモジュールのテスト
-    basic_conv = BasicConv()
-    basic_out = basic_conv(input_tensor)
-    print('Basic Conv output:', basic_out.shape)
+    # # Basic Convモジュールのテスト
+    # basic_conv = BasicConv()
+    # basic_out = basic_conv(input_tensor)
+    # print('Basic Conv output:', basic_out.shape)
 
-    # InceptionAモジュールのテスト
-    inception_a = Inception_A()
-    inception_a_out = inception_a(basic_out)
-    print('Inception A output:', inception_a_out.shape)
+    # # InceptionAモジュールのテスト
+    # inception_a = Inception_A()
+    # inception_a_out = inception_a(basic_out)
+    # print('Inception A output:', inception_a_out.shape)
 
-    # InceptionBモジュールのテスト
-    inception_b = Inception_B()
-    inception_b_out = inception_b(inception_a_out)
-    print('Inception B output:', inception_b_out.shape)
+    # # InceptionBモジュールのテスト
+    # inception_b = Inception_B()
+    # inception_b_out = inception_b(inception_a_out)
+    # print('Inception B output:', inception_b_out.shape)
+
+    # # InceptionCモジュールのテスト
+    # inception_c = Inception_C()
+    # inception_c_out = inception_c(inception_b_out)
+    # print('Inception C output:', inception_c_out.shape)
+
+    # ECO 2D ネットワークのテスト
+    eco_2d = ECO_2D()
+    eco_2d_out = eco_2d(input_tensor)
+    print('ECO 2D output:', eco_2d_out.shape)
