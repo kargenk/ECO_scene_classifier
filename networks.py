@@ -68,7 +68,37 @@ class Inception_A(nn.Module):
         out2 = self.inception2(x)  # [192, 28, 28] -> [64, 28, 28]
         out3 = self.inception3(x)  # [192, 28, 28] -> [96, 28, 28]
         out4 = self.inception4(x)  # [192, 28, 28] -> [32, 28, 28]
-        # channels方向に結合，shape: [64+64+96+32, 28, 28]
+        # channels方向に結合，shape: [64+64+96+32 = 256, 28, 28]
+        out = torch.cat([out1, out2, out3, out4], dim=1)
+        return out
+
+class Inception_B(nn.Module):
+    """ ECOの2D Netモジュール内のInceptionモジュールの2つ目 """
+
+    def __init__(self):
+        super(Inception_B, self).__init__()
+
+        self.inception1 = Conv2D(256, 64, kernel_size=1, stride=1)
+        self.inception2 = nn.Sequential(
+            Conv2D(256, 64, kernel_size=1, stride=1),
+            Conv2D(64, 96, kernel_size=3, stride=1, padding=1),
+        )
+        self.inception3 = nn.Sequential(
+            Conv2D(256, 64, kernel_size=1, stride=1),
+            Conv2D(64, 96, kernel_size=3, stride=1, padding=1),
+            Conv2D(96, 96, kernel_size=3, stride=1, padding=1),
+        )
+        self.inception4 = nn.Sequential(
+            nn.AvgPool2d(kernel_size=3, stride=1, padding=1),
+            Conv2D(256, 64, kernel_size=1, stride=1),
+        )
+
+    def forward(self, x):
+        out1 = self.inception1(x)  # [256, 28, 28] -> [64, 28, 28]
+        out2 = self.inception2(x)  # [256, 28, 28] -> [96, 28, 28]
+        out3 = self.inception3(x)  # [256, 28, 28] -> [96, 28, 28]
+        out4 = self.inception4(x)  # [256, 28, 28] -> [64, 28, 28]
+        # channels方向に結合，shape: [64+96+96+64 = 320, 28, 28]
         out = torch.cat([out1, out2, out3, out4], dim=1)
         return out
 
@@ -84,3 +114,8 @@ if __name__ == '__main__':
     inception_a = Inception_A()
     inception_a_out = inception_a(basic_out)
     print('Inception A output:', inception_a_out.shape)
+
+    # InceptionBモジュールのテスト
+    inception_b = Inception_B()
+    inception_b_out = inception_b(inception_a_out)
+    print('Inception B output:', inception_b_out.shape)
