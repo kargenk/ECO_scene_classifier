@@ -20,6 +20,25 @@ class Conv2D(nn.Module):
         out = self.conv(x)
         return out
 
+class Conv3D(nn.Module):
+    """ conv -> (batchnorm -> relu) の標準的な畳み込み層クラス． """
+
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, flag=False):
+        super(Conv3D, self).__init__()
+
+        if flag == True:
+            self.conv = nn.Sequential(
+                nn.Conv3d(in_channels, out_channels, kernel_size, stride, padding),
+                nn.BatchNorm3d(out_channels),
+                nn.ReLU(inplace=True)
+            )
+        else:
+            self.conv = nn.Conv3d(in_channels, out_channels, kernel_size, stride, padding)
+
+    def forward(self, x):
+        out = self.conv(x)
+        return out
+
 class BasicConv(nn.Module):
     """ ECOの2D Netモジュール内の最初の畳み込みネットワーク """
 
@@ -142,13 +161,55 @@ class ECO_2D(nn.Module):
         out = self.inception_c(out)
         return out
 
+class Resnet_3D_1(nn.Module):
+    """ ECOの3D Netモジュール内のResNetモジュールの1つ目 """
+
+    def __init__(self):
+        super(Resnet_3D_1, self).__init__()
+
+        self.conv1 = Conv3D(96, 128, kernel_size=3, stride=1, padding=1,
+                            flag=False)
+        self.bn_relu_1 = nn.Sequential(
+            nn.BatchNorm3d(128),
+            nn.ReLU(inplace=True),
+        )
+
+        self.conv2 = Conv3D(128, 128, kernel_size=3, stride=1, padding=1,
+                            flag=True)
+        
+        self.conv3 = Conv3D(128, 128, kernel_size=3, stride=1, padding=1,
+                            flag=False)
+        self.bn_relu_3 = nn.Sequential(
+            nn.BatchNorm3d(128),
+            nn.ReLU(inplace=True),
+        )
+
+        self.bn_relu = nn.Sequential(
+            nn.BatchNorm3d(128),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        residual = self.conv1(x)
+        
+        out = self.bn_relu_1(residual)
+        out = self.conv2(out)
+        out = self.conv3(out)
+
+        out += residual  # Skip Connection
+        out = self.bn_relu(out)
+
+        return out
+
 if __name__ == '__main__':
     batch_size = 1
-    input_tensor = torch.randn(batch_size, 3, 224, 224)  # 入力用のテストtensor
+    # (2D | 3D) Netへの入力用テストtensor
+    input_tensor_for2d = torch.randn(batch_size, 3, 224, 224)
+    input_tensor_for3d = torch.randn(batch_size, 96, 16, 28, 28)
 
     # # Basic Convモジュールのテスト
     # basic_conv = BasicConv()
-    # basic_out = basic_conv(input_tensor)
+    # basic_out = basic_conv(input_tensor_for2d)
     # print('Basic Conv output:', basic_out.shape)
 
     # # InceptionAモジュールのテスト
@@ -168,5 +229,10 @@ if __name__ == '__main__':
 
     # ECO 2D ネットワークのテスト
     eco_2d = ECO_2D()
-    eco_2d_out = eco_2d(input_tensor)
-    print('ECO 2D output:', eco_2d_out.shape)
+    eco_2d_out = eco_2d(input_tensor_for2d)
+    print('ECO 2D output:', eco_2d_out.shape)  # [batch_size, 96, 28, 28]
+
+    # ResNet_3D_1モジュールのテスト
+    resnet_3d_1 = Resnet_3D_1()
+    resnet_3d_1_out = resnet_3d_1(input_tensor_for3d)
+    print('ResNet 3D 1 output:', resnet_3d_1_out.shape)  # [N, 128, 16, 28, 28]
