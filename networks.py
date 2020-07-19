@@ -220,7 +220,7 @@ class Resnet3D_2(nn.Module):
     def forward(self, x):
         res1 = self.res1(x)
         skip1 = self.skip1(x)
-        out = res1 + skip1  # [256, 8, 14, 14]
+        out = res1 + skip1  # [128, 16, 28, 28] -> [256, 8, 14, 14]
 
         res2 = self.res2(out)
         skip2 = out
@@ -228,11 +228,79 @@ class Resnet3D_2(nn.Module):
 
         return out
 
+class Resnet3D_3(nn.Module):
+    """
+    ECOの3D Netモジュール内のResNetモジュールの3つ目．
+    レイヤー構成はResNet3D_2と同じ．
+    """
+
+    def __init__(self):
+        super(Resnet3D_3, self).__init__()
+
+        self.res1 = nn.Sequential(
+            Conv3D(256, 512, kernel_size=3, stride=2, padding=1, flag=True),
+            Conv3D(512, 512, kernel_size=3, stride=1, padding=1, flag=False),
+        )
+        self.skip1 = Conv3D(256, 512, kernel_size=3, stride=2, padding=1)
+        
+        self.res2 = nn.Sequential(
+            nn.BatchNorm3d(512),
+            nn.ReLU(inplace=True),
+            Conv3D(512, 512, kernel_size=3, stride=1, padding=1, flag=True),
+            Conv3D(512, 512, kernel_size=3, stride=1, padding=1, flag=False),
+        )
+        
+        self.bn_relu = nn.Sequential(
+            nn.BatchNorm3d(512),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        res1 = self.res1(x)
+        skip1 = self.skip1(x)
+        out = res1 + skip1  # [256, 8, 14, 14] -> [512, 4, 7, 7]
+
+        res2 = self.res2(out)
+        skip2 = out
+        out = res2 + skip2
+
+        return out
+
+class ECO_3D(nn.Module):
+    """ ResNet3D 1-3を連結させた，ECOの3D Netモジュール全体 """
+
+    def __init__(self):
+        super(ECO_3D, self).__init__()
+
+        # ResNet3D
+        self.res3d_1 = Resnet3D_1()
+        self.res3d_2 = Resnet3D_2()
+        self.res3d_3 = Resnet3D_3()
+
+        # Global Average Pooling
+        self.global_avg_pool = nn.AvgPool3d(
+            kernel_size=(4, 7, 7), stride=1, padding=0)
+
+    def forward(self, x):
+        """
+        Parameters
+        ----------
+        x : torch.Tensor, torch.Size([batch_size, frames, 96, 28, 28])
+            入力
+        """
+        
+        x = torch.transpose(x, 1, 2)  # [frames, C, H, W] -> [C, frames, H, W]
+        out = self.res3d_1(x)
+        out = self.res3d_2(out)
+        out = self.res3d_3(out)
+        out = self.global_avg_pool(out)
+        return out
+
 if __name__ == '__main__':
     batch_size = 1
     # (2D | 3D) Netへの入力用テストtensor
     input_tensor_for2d = torch.randn(batch_size, 3, 224, 224)
-    input_tensor_for3d = torch.randn(batch_size, 96, 16, 28, 28)
+    input_tensor_for3d = torch.randn(batch_size, 16, 96, 28, 28)
 
     # # Basic Convモジュールのテスト
     # basic_conv = BasicConv()
@@ -259,12 +327,22 @@ if __name__ == '__main__':
     eco_2d_out = eco_2d(input_tensor_for2d)
     print('ECO 2D output:', eco_2d_out.shape)  # [batch_size, 96, 28, 28]
 
-    # ResNet_3D_1モジュールのテスト
-    resnet3d_1 = Resnet3D_1()
-    resnet3d_1_out = resnet3d_1(input_tensor_for3d)
-    print('ResNet3D_1 output:', resnet3d_1_out.shape)  # [N, 128, 16, 28, 28]
+    # # ResNet_3D_1モジュールのテスト
+    # resnet3d_1 = Resnet3D_1()
+    # resnet3d_1_out = resnet3d_1(input_tensor_for3d)
+    # print('ResNet3D_1 output:', resnet3d_1_out.shape)  # [N, 128, 16, 28, 28]
 
-    # ResNet_3D_2モジュールのテスト
-    resnet3d_2 = Resnet3D_2()
-    resnet3d_2_out = resnet3d_2(resnet3d_1_out)
-    print('ResNet3D_2 output:', resnet3d_2_out.shape)  # [N, 256, 8, 14, 14]
+    # # ResNet_3D_2モジュールのテスト
+    # resnet3d_2 = Resnet3D_2()
+    # resnet3d_2_out = resnet3d_2(resnet3d_1_out)
+    # print('ResNet3D_2 output:', resnet3d_2_out.shape)  # [N, 256, 8, 14, 14]
+
+    # # ResNet_3D_3モジュールのテスト
+    # resnet3d_3 = Resnet3D_3()
+    # resnet3d_3_out = resnet3d_3(resnet3d_2_out)
+    # print('ResNet3D_3 output:', resnet3d_3_out.shape)  # [N, 512, 4, 7, 7]
+
+    # ECO 3D ネットワークのテスト
+    eco_3d = ECO_3D()
+    eco_3d_out = eco_3d(input_tensor_for3d)
+    print('ECO 3D output:', eco_3d_out.shape)  # [batch_size, 512, 1, 1, 1]
