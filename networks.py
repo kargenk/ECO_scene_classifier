@@ -161,27 +161,20 @@ class ECO_2D(nn.Module):
         out = self.inception_c(out)
         return out
 
-class Resnet_3D_1(nn.Module):
+class Resnet3D_1(nn.Module):
     """ ECOの3D Netモジュール内のResNetモジュールの1つ目 """
 
     def __init__(self):
-        super(Resnet_3D_1, self).__init__()
+        super(Resnet3D_1, self).__init__()
 
         self.conv1 = Conv3D(96, 128, kernel_size=3, stride=1, padding=1,
                             flag=False)
-        self.bn_relu_1 = nn.Sequential(
-            nn.BatchNorm3d(128),
-            nn.ReLU(inplace=True),
-        )
-
-        self.conv2 = Conv3D(128, 128, kernel_size=3, stride=1, padding=1,
-                            flag=True)
         
-        self.conv3 = Conv3D(128, 128, kernel_size=3, stride=1, padding=1,
-                            flag=False)
-        self.bn_relu_3 = nn.Sequential(
+        self.res_1 = nn.Sequential(
             nn.BatchNorm3d(128),
             nn.ReLU(inplace=True),
+            Conv3D(128, 128, kernel_size=3, stride=1, padding=1, flag=True),
+            Conv3D(128, 128, kernel_size=3, stride=1, padding=1, flag=False),
         )
 
         self.bn_relu = nn.Sequential(
@@ -192,12 +185,46 @@ class Resnet_3D_1(nn.Module):
     def forward(self, x):
         residual = self.conv1(x)
         
-        out = self.bn_relu_1(residual)
-        out = self.conv2(out)
-        out = self.conv3(out)
+        out = self.res_1(residual)
 
         out += residual  # Skip Connection
+        
         out = self.bn_relu(out)
+
+        return out
+
+class Resnet3D_2(nn.Module):
+    """ ECOの3D Netモジュール内のResNetモジュールの2つ目 """
+
+    def __init__(self):
+        super(Resnet3D_2, self).__init__()
+
+        self.res1 = nn.Sequential(
+            Conv3D(128, 256, kernel_size=3, stride=2, padding=1, flag=True),
+            Conv3D(256, 256, kernel_size=3, stride=1, padding=1, flag=False),
+        )
+        self.skip1 = Conv3D(128, 256, kernel_size=3, stride=2, padding=1)
+        
+        self.res2 = nn.Sequential(
+            nn.BatchNorm3d(256),
+            nn.ReLU(inplace=True),
+            Conv3D(256, 256, kernel_size=3, stride=1, padding=1, flag=True),
+            Conv3D(256, 256, kernel_size=3, stride=1, padding=1, flag=False),
+        )
+        
+        self.bn_relu = nn.Sequential(
+            nn.BatchNorm3d(256),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        res1 = self.res1(x)
+        skip1 = self.skip1(x)
+        out = res1 + skip1  # [256, 8, 14, 14]
+
+        res2 = self.res2(out)
+        skip2 = out
+        out = res2 + skip2
 
         return out
 
@@ -233,6 +260,11 @@ if __name__ == '__main__':
     print('ECO 2D output:', eco_2d_out.shape)  # [batch_size, 96, 28, 28]
 
     # ResNet_3D_1モジュールのテスト
-    resnet_3d_1 = Resnet_3D_1()
-    resnet_3d_1_out = resnet_3d_1(input_tensor_for3d)
-    print('ResNet 3D 1 output:', resnet_3d_1_out.shape)  # [N, 128, 16, 28, 28]
+    resnet3d_1 = Resnet3D_1()
+    resnet3d_1_out = resnet3d_1(input_tensor_for3d)
+    print('ResNet3D_1 output:', resnet3d_1_out.shape)  # [N, 128, 16, 28, 28]
+
+    # ResNet_3D_2モジュールのテスト
+    resnet3d_2 = Resnet3D_2()
+    resnet3d_2_out = resnet3d_2(resnet3d_1_out)
+    print('ResNet3D_2 output:', resnet3d_2_out.shape)  # [N, 256, 8, 14, 14]
