@@ -294,6 +294,39 @@ class ECO_3D(nn.Module):
         out = self.res3d_2(out)
         out = self.res3d_3(out)
         out = self.global_avg_pool(out)
+
+        # tensorのサイズ変更，[batch_size, 512, 1, 1, 1] -> [batch_size, 512]
+        out = out.view(out.size()[0], out.size()[1])
+        
+        return out
+
+class ECO_Lite(nn.Module):
+    def __init__(self):
+        super(ECO_Lite, self).__init__()
+
+        self.eco_2d = ECO_2D()  # 2D Net モジュール
+        self.eco_3d = ECO_3D()  # 3D Net モジュール
+        
+        # クラス分類用の全結合層
+        self.fc_final = nn.Linear(512, 400, bias=True)
+
+    def forward(self, x):
+        '''
+        Inputs
+        ----------
+        x : torch.tensor, size = [batch_size, num_segments=16, 3, 224, 224]
+        '''
+
+        bs, ns, c, h, w = x.shape # 入力の各次元のサイズを取得
+        _x = x.view(-1, c, h, w)  # 入力xのサイズ[bs*ns, c, h, w]に変換
+        out_2d = self.eco_2d(_x)  # [bs*ns, 3, 224, 224] -> [bs*ns, 96, 28, 28]
+        
+        # 2次元画像tensorを3次元用に変換
+        _out_2d = out_2d.view(-1, ns, 96, 28, 28)  
+        out_3d = self.eco_3d(_out_2d)  # [bs, ns, 96, 28, 28] -> [bs, 512]
+
+        out = self.fc_final(out_3d)  # [bs, 512] -> [bs, 400]
+
         return out
 
 if __name__ == '__main__':
@@ -301,6 +334,7 @@ if __name__ == '__main__':
     # (2D | 3D) Netへの入力用テストtensor
     input_tensor_for2d = torch.randn(batch_size, 3, 224, 224)
     input_tensor_for3d = torch.randn(batch_size, 16, 96, 28, 28)
+    input_tensor_forLite = torch.randn(batch_size, 16, 3, 224, 224)
 
     # # Basic Convモジュールのテスト
     # basic_conv = BasicConv()
@@ -322,10 +356,10 @@ if __name__ == '__main__':
     # inception_c_out = inception_c(inception_b_out)
     # print('Inception C output:', inception_c_out.shape)
 
-    # ECO 2D ネットワークのテスト
-    eco_2d = ECO_2D()
-    eco_2d_out = eco_2d(input_tensor_for2d)
-    print('ECO 2D output:', eco_2d_out.shape)  # [batch_size, 96, 28, 28]
+    # # ECO 2D ネットワークのテスト
+    # eco_2d = ECO_2D()
+    # eco_2d_out = eco_2d(input_tensor_for2d)
+    # print('ECO 2D output:', eco_2d_out.shape)  # [batch_size, 96, 28, 28]
 
     # # ResNet_3D_1モジュールのテスト
     # resnet3d_1 = Resnet3D_1()
@@ -342,7 +376,12 @@ if __name__ == '__main__':
     # resnet3d_3_out = resnet3d_3(resnet3d_2_out)
     # print('ResNet3D_3 output:', resnet3d_3_out.shape)  # [N, 512, 4, 7, 7]
 
-    # ECO 3D ネットワークのテスト
-    eco_3d = ECO_3D()
-    eco_3d_out = eco_3d(input_tensor_for3d)
-    print('ECO 3D output:', eco_3d_out.shape)  # [batch_size, 512, 1, 1, 1]
+    # # ECO 3D ネットワークのテスト
+    # eco_3d = ECO_3D()
+    # eco_3d_out = eco_3d(input_tensor_for3d)
+    # print('ECO 3D output:', eco_3d_out.shape)  # [batch_size, 512]
+
+    # ECO Lite ネットワークのテスト
+    eco_lite = ECO_Lite()
+    eco_lite_out = eco_lite(input_tensor_forLite)
+    print('ECO 3D output:', eco_lite_out.shape)  # [batch_size, 400]
