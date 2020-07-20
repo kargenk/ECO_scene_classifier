@@ -48,6 +48,40 @@ def make_datapath_list(root_path):
     
     return video_list
 
+def get_label_id_dictionary(label_dicitionary_path='./video_download/kinetics_400_label_dicitionary.csv'):
+    """
+    Kinetics-400のラベル名をIDに変換する辞書と，逆にIDをラベル名に変換する辞書を返す関数．
+    
+    Inputs
+    ----------
+    label_dictionary_path : str
+        Kinetics-400のクラスラベル情報のcsvファイルへのパス
+    
+    Returns
+    ----------
+    label_id_dict : dict()
+        ラベル名をIDに変換する辞書
+    id_label_dict : dict()
+        IDをラベル名に変換する辞書
+    """
+
+    label_id_dict = dict()
+    id_label_dict = dict()
+
+    with open(label_dicitionary_path, encoding='utf-8_sig') as f:
+
+        # 読み込む
+        reader = csv.DictReader(f, delimiter=',', quotechar='"')
+
+        # 1行ずつ読み込み，辞書型変数に追加
+        for row in reader:
+            label_id_dict.setdefault(
+                row['class_label'], int(row['label_id']) - 1)
+            id_label_dict.setdefault(
+                int(row['label_id']) - 1, row['class_label'])
+
+    return label_id_dict, id_label_dict
+
 class GroupResize():
     """
     画像群をまとめてリサイズするクラス．
@@ -142,8 +176,14 @@ class VideoTransform():
         return self.data_transform[phase](img_group)
 
 if __name__ == '__main__':
+    
+    # データパス作成のテスト
     root_path = './data/kinetics_videos/'
     video_list = make_datapath_list(root_path)
-    
     print(video_list[0])
     print(video_list[1])
+
+    # 動画クラスラベルの確認
+    label_dicitionary_path = './video_download/kinetics_400_label_dicitionary.csv'
+    label_id_dict, id_label_dict = get_label_id_dictionary(label_dicitionary_path)
+    print(label_id_dict)
