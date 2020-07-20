@@ -41,14 +41,14 @@ def main():
 
     # Datasetの作成
     val_dataset = VideoDataset(video_list, label_id_dict, num_segments=16,
-                            phase='val', transform=video_transform,
-                            img_template='image_{:05d}.jpg')
+                               phase='val', transform=video_transform,
+                               img_template='image_{:05d}.jpg')
 
     # DataLoaderを作成して，データをロード
     batch_size = 8
     val_dataloader = data.DataLoader(val_dataset,
-                                    batch_size=batch_size,
-                                    shuffle=False)
+                                     batch_size=batch_size,
+                                     shuffle=False)
     batch_iterator = iter(val_dataloader)  # イテレータに変換
     imgs_transformeds, labels, label_ids, dir_path = next(batch_iterator)
 
@@ -62,7 +62,7 @@ def main():
         outputs = net(imgs_transformeds)
 
     # 予測を実施
-    idx = 3
+    idx = 0
     show_eco_inference_result(dir_path, outputs, id_label_dict, idx)
 
 if __name__ == '__main__':
