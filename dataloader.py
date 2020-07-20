@@ -269,8 +269,8 @@ if __name__ == '__main__':
     # データパス作成
     root_path = './data/kinetics_videos/'
     video_list = make_datapath_list(root_path)
-    print(video_list[0])
-    print(video_list[1])
+    # print(video_list[0])
+    # print(video_list[1])
 
     # 動画クラスラベルとIDの取得
     label_dicitionary_path = './video_download/kinetics_400_label_dicitionary.csv'
@@ -293,3 +293,14 @@ if __name__ == '__main__':
     print(val_dataset.__getitem__(index)[1])        # ラベル名
     print(val_dataset.__getitem__(index)[2])        # ラベルID
     print(val_dataset.__getitem__(index)[3])        # 動画へのパス
+    print()
+
+    # DataLoaderにしてテスト
+    batch_size = 8
+    val_dataloader = data.DataLoader(val_dataset,
+                                     batch_size=batch_size,
+                                     shuffle=False)
+    
+    batch_iterator = iter(val_dataloader)  # イテレータに変換
+    imgs_transformeds, labels, label_ids, dir_path = next(batch_iterator)
+    print(imgs_transformeds.shape)
